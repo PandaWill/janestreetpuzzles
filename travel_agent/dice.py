@@ -45,6 +45,18 @@ class Dice(object):
 	def set_value(self, value):
 		self.faces[self.up_index] = value
 
+	def south(self):
+		return self.faces[self.south_index]
+
+	def north(self):
+		return self.faces[self.north_index]
+
+	def east(self):
+		return self.faces[self.east_index]
+
+	def west(self):
+		return self.faces[self.west_index]
+
 
 class TestDice(TestCase):
 	def setUp(self):

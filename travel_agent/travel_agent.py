@@ -1,7 +1,5 @@
 import copy
 import time
-from functools import reduce
-from operator import mul
 from unittest import TestCase
 
 from dice import Dice
@@ -46,77 +44,100 @@ stripped_grid = [row[2:-2] for row in full_grid[2:-2]]
 max_dice = None
 max_grid = None
 max_visited = None
+max_success_score = 0
 
 
 def max_score(grid):
-	dice = Dice()
-	visited = [[False for j in grid[i]] for i in range(len(grid))]
-	x, y = 0, 0
-	product = 1
-	success_products = []
-
-	max_score_recursive(grid, visited, dice, x, y, product, success_products)
-
-	return max(success_products)
+	s = Solver(grid)
+	s.solve()
+	return s.max_score
 
 
-def max_score_recursive(grid, visited, dice, x, y, product, success_products):
-	global max_dice
-	global max_grid
-	global max_visited
+def is_good_move(dice_value, grid_value):
+	if dice_value == 0 or grid_value == 0 or dice_value == grid_value:
+		return True
+	return False
 
-	grid_modified = False
-	dice_modified = False
+class Solver(object):
+	def __init__(self, grid):
+		self.grid = grid
+		self.visited = [[False for j in grid[i]] for i in range(len(grid))]
 
-	if dice.get_value() == 0 and grid[x][y] != 0:
-		dice.set_value(grid[x][y])
-		dice_modified = True
-	elif dice.get_value() != 0 and grid[x][y] == 0:
-		grid[x][y] = dice.get_value()
-		grid_modified = True
-	elif dice.get_value() == 0 and grid[x][y] == 0:
-		for i in range(1, 10):
-			grid[x][y] = i
-			max_score_recursive(grid, visited, dice, x, y, product, success_products)
-		grid[x][y] = 0
-		return
-	elif grid[x][y] != dice.get_value():
-		return
+		self.x, self.y = 0, 0
+		self.max_x = len(grid) - 1
+		self.max_y = len(grid[0]) - 1
 
-	product *= grid[x][y]
+		self.dice = Dice()
 
-	if x == len(grid) - 1 and y == len(grid[0]) - 1:
-		if product > max(success_products or [0]):
-			max_dice = copy.deepcopy(dice)
-			max_grid = copy.deepcopy(grid)
-			max_visited = copy.deepcopy(visited)
-		success_products.append(product)
-	else:
-		visited[x][y] = True
+		self.max_score = 0
+		self.max_dice = None
+		self.max_grid = None
+		self.max_visited = None
 
-		if x < len(grid) - 1 and not visited[x + 1][y]:
-			dice.tip_south()
-			max_score_recursive(grid, visited, dice, x + 1, y, product, success_products)
-			dice.tip_north()
-		if x > 0 and not visited[x - 1][y]:
-			dice.tip_north()
-			max_score_recursive(grid, visited, dice, x - 1, y, product, success_products)
-			dice.tip_south()
-		if y < len(grid[0]) - 1 and not visited[x][y + 1]:
-			dice.tip_east()
-			max_score_recursive(grid, visited, dice, x, y + 1, product, success_products)
-			dice.tip_west()
-		if y > 0 and not visited[x][y - 1]:
-			dice.tip_west()
-			max_score_recursive(grid, visited, dice, x, y - 1, product, success_products)
-			dice.tip_east()
+	def solve(self):
+		self.solve_recursive(0, 0, 1)
 
-	# Undo stuff to avoid copying
-	visited[x][y] = False
-	if grid_modified:
-		grid[x][y] = 0
-	if dice_modified:
-		dice.set_value(0)
+	def solve_recursive(self, x, y, product):
+		grid = self.grid
+		dice = self.dice
+		visited = self.visited
+
+		grid_modified = False
+		dice_modified = False
+
+		if dice.get_value() == 0 and grid[x][y] != 0:
+			dice.set_value(grid[x][y])
+			dice_modified = True
+		elif dice.get_value() != 0 and grid[x][y] == 0:
+			grid[x][y] = dice.get_value()
+			grid_modified = True
+		elif dice.get_value() == 0 and grid[x][y] == 0:
+			for i in range(1, 10):
+				grid[x][y] = i
+				self.solve_recursive(x, y, product)
+			grid[x][y] = 0
+			return
+		elif grid[x][y] != dice.get_value():
+			return
+
+		product *= grid[x][y]
+
+		if x == self.max_x and y == self.max_y:
+			if product > self.max_score:
+				self.max_dice = copy.deepcopy(dice)
+				self.max_grid = copy.deepcopy(grid)
+				self.max_visited = copy.deepcopy(visited)
+				self.max_score = product
+		else:
+			visited[x][y] = True
+
+			if x < self.max_x and not visited[x + 1][y]:
+				if is_good_move(dice.north(), grid[x + 1][y]):
+					dice.tip_south()
+					self.solve_recursive(x + 1, y, product)
+					dice.tip_north()
+			if x > 0 and not visited[x - 1][y]:
+				if is_good_move(dice.south(), grid[x - 1][y]):
+					dice.tip_north()
+					self.solve_recursive(x - 1, y, product)
+					dice.tip_south()
+			if y < self.max_y and not visited[x][y + 1]:
+				if is_good_move(dice.west(), grid[x][y + 1]):
+					dice.tip_east()
+					self.solve_recursive(x, y + 1, product)
+					dice.tip_west()
+			if y > 0 and not visited[x][y - 1]:
+				if is_good_move(dice.east(), grid[x][y - 1]):
+					dice.tip_west()
+					self.solve_recursive(x, y - 1, product)
+					dice.tip_east()
+
+		# Undo stuff to avoid copying
+		visited[x][y] = False
+		if grid_modified:
+			grid[x][y] = 0
+		if dice_modified:
+			dice.set_value(0)
 
 
 class TestTravelAgent(TestCase):
@@ -138,11 +159,12 @@ class TestTravelAgent(TestCase):
 
 def main():
 	start_time = time.time()
-	print(max_score(stripped_grid))
-	#print(max_score(full_grid))
-	print(max_dice.faces)
-	print(max_grid)
-	print(max_visited)
+	s = Solver(full_grid)
+	s.solve()
+	print(s.max_score)
+	print(s.max_dice.faces)
+	print(s.max_grid)
+	print(s.max_visited)
 	print("--- %s seconds ---" % (time.time() - start_time))
 
 
