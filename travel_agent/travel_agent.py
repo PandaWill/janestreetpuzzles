@@ -41,11 +41,6 @@ empty_line = [[0, 0, 0]]
 
 stripped_grid = [row[2:-2] for row in full_grid[2:-2]]
 
-max_dice = None
-max_grid = None
-max_visited = None
-max_success_score = 0
-
 
 def max_score(grid):
     s = Solver(grid)
